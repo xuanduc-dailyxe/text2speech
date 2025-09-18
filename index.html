@@ -134,10 +134,21 @@
                     </div>   
                     <div class="mb-4">
                         <label class="form-label fw-semibold">Nội dung cần đọc</label>
+                        <div class="mb-3">
+                            <div class="input-group">
+                                <input type="text" id="url-input" class="form-control" placeholder="Nhập link tóm tắt...">
+                                <button id="process-url" class="btn btn-outline-primary" type="button">
+                                    <i class="bi bi-magic me-1"></i>Xử lý
+                                    <span id="loading-spinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status">
+                                        <span class="visually-hidden">Đang xử lý...</span>
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
                         <input type="text" id="style-persona" class="form-control mb-3"
                             placeholder="Phong cách / giọng điệu (tùy chọn)"
                             value="Giọng nói tự nhiên, to rõ, hơi nhanh" />
-                        <textarea id="text" class="form-control" rows="4"></textarea>
+                        <textarea id="text" class="form-control" rows="14"></textarea>
                     </div> 
                     <button id="go" class="btn btn-generate w-100">
                         <i class="bi bi-play-circle me-2"></i>Tạo giọng nói
@@ -169,6 +180,89 @@
 
     <script>
         const endpointBase = "https://generativelanguage.googleapis.com/v1beta";
+
+        const endpointBaseModelText = "https://generativelanguage.googleapis.com/v1/models";
+        
+        // Process URL and generate summary
+        async function processUrl() {
+            const urlInput = document.getElementById('url-input');
+            const text = document.getElementById('text');
+            const spinner = document.getElementById('loading-spinner');
+            const processButton = document.getElementById('process-url');
+            const url = urlInput.value.trim();
+
+            if (!url) {
+                alert('Vui lòng nhập link cần tóm tắt');
+                return;
+            }
+
+            // Show loading state
+            spinner.classList.remove('d-none');
+            processButton.disabled = true;
+
+            try {
+                // Fetch content from URL
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Không thể tải nội dung từ URL');
+                const content = await response.text();
+
+                // Extract main content (simple approach - you might want to use a proper parser)
+                const doc = new DOMParser().parseFromString(content, 'text/html');
+                const mainContent = doc.body.textContent || '';
+                
+                // Call Gemini API for summarization
+                const geminiUrl = `${endpointBaseModelText}/gemini-2.0-flash:generateContent`;
+                const payload = {
+                    contents: [{
+                        parts: [{
+                            text: `Viết lại nội dung của bài viết trong link sau, gom lại thành 1 đoạn để tôi copy vào công cụ text to speech để làm video:\n\n${mainContent}`
+                        }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.7,
+                        topK: 32,
+                        topP: 1,
+                        maxOutputTokens: 1024,
+                    }
+                };
+
+                const geminiResponse = await fetch(geminiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': "AIzaSyCMVNsdQxn-Py7ae_8GTGp6t3OXNRLSNy0"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!geminiResponse.ok) {
+                    throw new Error('Lỗi khi gọi Gemini API');
+                }
+
+                const result = await geminiResponse.json();
+                const summary = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+                
+                if (summary) {
+                    text.value = summary.trim();
+                    // Save to localStorage
+                    localStorage.setItem('tts-text', text.value);
+                } else {
+                    throw new Error('Không nhận được kết quả tóm tắt');
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                if (error.message === 'Failed to fetch') {
+                    alert('Vui lòng bật CORS Extension trên Chrome để đọc được nội dung từ website khác.\n\nBạn có thể cài đặt extension "Allow CORS: Access-Control-Allow-Origin" từ Chrome Web Store.');
+                } else {
+                    alert('Có lỗi xảy ra: ' + error.message);
+                }
+            } finally {
+                // Hide loading state
+                spinner.classList.add('d-none');
+                processButton.disabled = false;
+            }
+        }
         
         // Load saved form values from localStorage
         function loadSavedValues() {
@@ -176,11 +270,13 @@
             const voice = localStorage.getItem('tts-voice');
             const stylePersona = localStorage.getItem('tts-style-persona');
             const text = localStorage.getItem('tts-text');
+            const url = localStorage.getItem('tts-url');
 
             if (model) document.getElementById('model').value = model;
             if (voice) document.getElementById('voice').value = voice;
             if (stylePersona) document.getElementById('style-persona').value = stylePersona;
             if (text) document.getElementById('text').value = text;
+            if (url) document.getElementById('url-input').value = url;
 
             // Load and display history
             displayHistory();
@@ -437,6 +533,17 @@
 
         // Add event listeners
         document.getElementById('go').addEventListener('click', generateTTS);
+        document.getElementById('process-url').addEventListener('click', processUrl);
+        document.getElementById('url-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                processUrl();
+            }
+        });
+
+        // Save URL input whenever it changes
+        document.getElementById('url-input').addEventListener('input', function() {
+            localStorage.setItem('tts-url', this.value);
+        });
         
         // Load saved values when page loads
         document.addEventListener('DOMContentLoaded', loadSavedValues);
