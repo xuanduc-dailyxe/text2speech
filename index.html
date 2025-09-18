@@ -201,7 +201,7 @@
             if (!text) { alert("Nhập nội dung cần đọc."); return; }
             if (stylePersona) {
                 // Thêm style/persona vào đầu đoạn text, nếu có
-                text = `Đọc với phong cách / giọng điệu: ${stylePersona}\n\n${text}`;
+                text = `Đọc với phong cách / ${stylePersona}:\n\n${text}`;
             }
             console.log(text);
             log("Đang gọi Gemini TTS...");
