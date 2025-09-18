@@ -170,7 +170,11 @@
                         <textarea id="text" class="form-control" rows="14"></textarea>
                     </div> 
                     <button id="go" class="btn btn-generate w-100">
-                        <i class="bi bi-play-circle me-2"></i>Tạo giọng nói
+                        <i class="bi bi-play-circle me-2"></i>
+                        <span id="generate-btn-text">Tạo giọng nói</span>
+                        <span id="generate-spinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status">
+                            <span class="visually-hidden">Đang tạo...</span>
+                        </span>
                     </button>
                 </div> 
                 <div class="result-card">
@@ -557,6 +561,9 @@
             const voice = document.getElementById('voice').value;
             const model = document.getElementById('model').value;
             const stylePersona = document.getElementById('style-persona').value.trim();
+            const generateBtn = document.getElementById('go');
+            const generateBtnText = document.getElementById('generate-btn-text');
+            const generateSpinner = document.getElementById('generate-spinner');
             
             // Save form values
             saveFormValues();
@@ -565,6 +572,12 @@
 
             if (!key) { alert("Nhập API key trước đã."); return; }
             if (!text) { alert("Nhập nội dung cần đọc."); return; }
+            
+            // Show loading state
+            generateBtn.disabled = true;
+            generateBtnText.textContent = 'Đang tạo...';
+            generateSpinner.classList.remove('d-none');
+            
             if (stylePersona) {
                 // Thêm style/persona vào đầu đoạn text, nếu có
                 text = `Đọc với phong cách / ${stylePersona}:\n\n${text}`;
@@ -630,6 +643,11 @@
             } catch (e) {
                 log(e.message || e.toString());
                 alert("Gọi API thất bại. Xem log ở dưới để biết chi tiết.");
+            } finally {
+                // Reset button state
+                generateBtn.disabled = false;
+                generateBtnText.textContent = 'Tạo giọng nói';
+                generateSpinner.classList.add('d-none');
             }
         }
 
