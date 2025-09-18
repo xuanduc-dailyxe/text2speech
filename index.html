@@ -71,6 +71,16 @@
             padding: 1.5rem;
             margin-top: 1rem;
         }
+
+        .keyword-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #e9ecef;
+            border-radius: 12px;
+            font-size: 0.875rem;
+        }
+
+
     </style>
 </head>
 
@@ -144,6 +154,15 @@
                                     </span>
                                 </button>
                             </div>
+                            <div id="related-content" class="mt-3" style="display: none;">
+                                <div class="d-flex gap-2 mb-2">
+                                    <small class="text-muted">Từ khóa chính:</small>
+                                    <div id="keywords" class="d-flex gap-1 flex-wrap"></div>
+                                </div>
+                                <div class="row g-2">
+            
+                                </div>
+                            </div>
                         </div>
                         <input type="text" id="style-persona" class="form-control mb-3"
                             placeholder="Phong cách / giọng điệu (tùy chọn)"
@@ -180,8 +199,54 @@
 
     <script>
         const endpointBase = "https://generativelanguage.googleapis.com/v1beta";
-
         const endpointBaseModelText = "https://generativelanguage.googleapis.com/v1/models";
+        const GOOGLE_API_KEY = "AIzaSyCMVNsdQxn-Py7ae_8GTGp6t3OXNRLSNy0";
+
+        
+        // Extract keywords using Gemini
+        async function extractKeywords(text) {
+            try {
+                const response = await fetch(`${endpointBaseModelText}/gemini-2.0-flash:generateContent`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': GOOGLE_API_KEY
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: `Trích xuất 3-5 từ khóa chính từ đoạn văn sau (trả về dưới dạng danh sách các từ khóa, mỗi từ khóa một dòng):\n\n${text}`
+                            }]
+                        }]
+                    })
+                });
+
+                const data = await response.json();
+                const keywords = data?.candidates?.[0]?.content?.parts?.[0]?.text
+                    .split('\n')
+                    .map(k => k.trim())
+                    .filter(k => k);
+                return keywords;
+            } catch (error) {
+                console.error('Error extracting keywords:', error);
+                return [];
+            }
+        }
+
+
+
+        // Update related content UI
+        async function updateRelatedContent(keywords) {
+            const keywordsContainer = document.getElementById('keywords');
+
+            // Display keywords
+            keywordsContainer.innerHTML = keywords.map(k => `
+                <span class="keyword-tag">${k}</span>
+            `).join('');
+
+            // Show the related content section
+            document.getElementById('related-content').style.display = 'block';
+        }
         
         // Process URL and generate summary
         async function processUrl() {
@@ -191,11 +256,13 @@
             const processButton = document.getElementById('process-url');
             const url = urlInput.value.trim();
 
+            
+
             if (!url) {
                 alert('Vui lòng nhập link cần tóm tắt');
                 return;
             }
-
+            text.value = ''; // Clear previous text
             // Show loading state
             spinner.classList.remove('d-none');
             processButton.disabled = true;
@@ -246,6 +313,11 @@
                     text.value = summary.trim();
                     // Save to localStorage
                     localStorage.setItem('tts-text', text.value);
+
+                    // Extract and process keywords
+                    const keywords = await extractKeywords(summary);
+                    localStorage.setItem('tts-keywords', JSON.stringify(keywords));
+                    await updateRelatedContent(keywords);
                 } else {
                     throw new Error('Không nhận được kết quả tóm tắt');
                 }
@@ -539,6 +611,7 @@
                 processUrl();
             }
         });
+
 
         // Save URL input whenever it changes
         document.getElementById('url-input').addEventListener('input', function() {
