@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Gemini TTS — Text to Speech</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+        }
+        .card {
+            border: none;
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border-radius: 1rem;
+        }
+        .form-control, .form-select {
+            border-radius: 0.5rem;
+        }
+        .btn-generate {
+            border-radius: 0.5rem;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            border: none;
+            color: white;
+            transition: all 0.3s ease;
+        }
+        .btn-generate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+        }
+        .mono {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+        .header-icon {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        audio {
+            width: 100%;
+            margin: 1rem 0;
+        }
+        #download a {
+            text-decoration: none;
+            color: #6366f1;
+        }
+        .result-card {
+            background: #ffffff;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="text-center mb-5">
+                    <i class="bi bi-soundwave header-icon mb-3"></i>
+                    <h1 class="display-5 fw-bold mb-3">Gemini Text-to-Speech</h1>
+                    <p class="text-muted">Chuyển đổi văn bản thành giọng nói tự nhiên với công nghệ Gemini AI</p>
+                </div>
+
+                <div class="card p-4 mb-4">
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Model</label>
+                        <select id="model" class="form-select">
+                            <option value="gemini-2.5-flash-preview-tts">gemini-2.5-flash-preview-tts</option>
+                            <option value="gemini-2.5-pro-preview-tts">gemini-2.5-pro-preview-tts</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Giọng đọc</label>
+                        <select id="voice" class="form-select"> 
+                            <option value="Zephyr">Zephyr</option>
+                            <option value="Puck">Puck</option>
+                            <option value="Charon">Charon</option>
+                            <option value="Kore">Kore</option>
+                            <option value="Fenrir">Fenrir</option>
+                            <option value="Leda">Leda</option>
+                            <option value="Orus">Orus</option>
+                            <option value="Aoede">Aoede</option>
+                            <option value="Callirrhoe">Callirrhoe</option>
+                            <option value="Autonoe">Autonoe</option>
+                            <option value="Enceladus">Enceladus</option>
+                            <option value="Lapetus">Lapetus</option>
+                            <option value="Umbriel">Umbriel</option>
+                            <option value="Algieba">Algieba</option>
+                            <option value="Despina">Despina</option>
+                            <option value="Erinome">Erinome</option>
+                            <option value="Algenib">Algenib</option>
+                            <option value="Rasalgethi">Rasalgethi</option>
+                            <option value="Laomedeia">Laomedeia</option>
+                            <option value="Achernar">Achernar</option>
+                            <option value="Alnilam">Alnilam</option>
+                            <option value="Schedar">Schedar</option>
+                            <option value="Gacrux">Gacrux</option>
+                            <option value="Pulcherrima">Pulcherrima</option>
+                            <option value="Achird">Achird</option>
+                            <option value="Zubenelgenubi" selected>Zubenelgenubi</option>
+                            <option value="Vindemiatrix">Vindemiatrix</option>
+                            <option value="Sadachbia">Sadachbia</option>
+                            <option value="Sadaltager">Sadaltager</option>
+                            <option value="Sulafat">Sulafat</option> 
+                        </select>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold">Nội dung cần đọc</label>
+                        <input type="text" id="style-persona" class="form-control mb-3" 
+                            placeholder="Phong cách / giọng điệu (tùy chọn)" 
+                            value="Giọng nói tự nhiên, to rõ, hơi nhanh" />
+                        <textarea id="text" class="form-control" rows="4">Chúc bạn một ngày tuyệt vời!</textarea>
+                    </div>
+
+                    <button id="go" class="btn btn-generate w-100">
+                        <i class="bi bi-play-circle me-2"></i>Tạo giọng nói
+                    </button>
+                </div>
+
+                <div class="result-card">
+                    <label class="form-label fw-semibold mb-3">Kết quả</label>
+                    <audio id="player" controls class="w-100"></audio>
+                    <div id="download" class="text-center"></div>
+                    <pre id="log" class="mono small text-muted mt-3"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        const endpointBase = "https://generativelanguage.googleapis.com/v1beta";
+
+        // Chuyển Base64 PCM (s16le 24kHz mono) -> Blob WAV
+        function pcmBase64ToWavBlob(b64, sampleRate = 24000, numChannels = 1, bytesPerSample = 2) {
+            const raw = atob(b64);
+            const pcmData = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; i++) pcmData[i] = raw.charCodeAt(i);
+
+            const blockAlign = numChannels * bytesPerSample;
+            const byteRate = sampleRate * blockAlign;
+            const dataSize = pcmData.byteLength;
+            const headerSize = 44;
+            const buffer = new ArrayBuffer(headerSize + dataSize);
+            const view = new DataView(buffer);
+
+            // RIFF header
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(view, 8, 'WAVE');
+
+            // fmt  subchunk
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);            // Subchunk1Size
+            view.setUint16(20, 1, true);             // AudioFormat = PCM
+            view.setUint16(22, numChannels, true);   // NumChannels
+            view.setUint32(24, sampleRate, true);    // SampleRate
+            view.setUint32(28, byteRate, true);      // ByteRate
+            view.setUint16(32, blockAlign, true);    // BlockAlign
+            view.setUint16(34, bytesPerSample * 8, true); // BitsPerSample
+
+            // data subchunk
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            // PCM payload
+            new Uint8Array(buffer, headerSize).set(pcmData);
+
+            return new Blob([buffer], { type: 'audio/wav' });
+
+            function writeString(dv, offset, str) {
+                for (let i = 0; i < str.length; i++) dv.setUint8(offset + i, str.charCodeAt(i));
+            }
+        }
+
+        async function generateTTS() {
+            const key = "AIzaSyCMVNsdQxn-Py7ae_8GTGp6t3OXNRLSNy0";
+            var text = document.getElementById('text').value;
+            const voice = document.getElementById('voice').value;
+            const model = document.getElementById('model').value;
+            const stylePersona = document.getElementById('style-persona').value.trim();
+
+            const log = (msg) => document.getElementById('log').textContent = String(msg ?? '');
+
+            if (!key) { alert("Nhập API key trước đã."); return; }
+            if (!text) { alert("Nhập nội dung cần đọc."); return; }
+            if (stylePersona) {
+                // Thêm style/persona vào đầu đoạn text, nếu có
+                text = `Đọc với phong cách / giọng điệu: ${stylePersona}\n\n${text}`;
+            }
+            console.log(text);
+            log("Đang gọi Gemini TTS...");
+
+            const url = `${endpointBase}/models/${encodeURIComponent(model)}:generateContent`;
+            const payload = {
+                contents: [{ parts: [{ text }] }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: voice }
+                        }
+                    }
+                },
+                model
+            };
+
+            try {
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "x-goog-api-key": key,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(`HTTP ${res.status} — ${errText}`);
+                }
+
+                const data = await res.json();
+                // Lấy Base64 PCM từ inlineData
+                const b64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                if (!b64) throw new Error("Không tìm thấy audio trong phản hồi API.");
+
+                // Đổi sang WAV rồi phát
+                const wavBlob = pcmBase64ToWavBlob(b64, 24000, 1, 2);
+                const urlObj = URL.createObjectURL(wavBlob);
+
+                const audio = document.getElementById('player');
+                audio.src = urlObj;
+                audio.play().catch(() => { /* user gesture may be required */ });
+
+                // Link tải
+                const a = document.createElement('a');
+                a.href = urlObj;
+                a.download = 'gemini-tts.wav';
+                a.textContent = 'Tải về: gemini-tts.wav';
+                const dl = document.getElementById('download');
+                dl.innerHTML = '';
+                dl.appendChild(a);
+
+                log("Xong. Nếu không nghe được, thử bấm Play thủ công hoặc tải file về.");
+            } catch (e) {
+                log(e.message || e.toString());
+                alert("Gọi API thất bại. Xem log ở dưới để biết chi tiết.");
+            }
+        }
+
+        document.getElementById('go').addEventListener('click', generateTTS);
+    </script>
+</body>
+
+</html>
