@@ -148,7 +148,7 @@
                             <div class="input-group">
                                 <input type="text" id="url-input" class="form-control" placeholder="Nhập link tóm tắt...">
                                 <button id="process-url" class="btn btn-outline-primary" type="button">
-                                    <i class="bi bi-magic me-1"></i>Xử lý
+                                    <i class="bi bi-magic me-1"></i>Tóm tắt nội dung AI
                                     <span id="loading-spinner" class="spinner-border spinner-border-sm ms-1 d-none" role="status">
                                         <span class="visually-hidden">Đang xử lý...</span>
                                     </span>
@@ -369,27 +369,52 @@
 
         // Save to history
         function saveToHistory(text, audioBlob) {
-            const history = JSON.parse(localStorage.getItem('tts-history') || '[]');
-            
-            // Convert audioBlob to base64
-            const reader = new FileReader();
-            reader.onloadend = function() {
-                const base64Audio = reader.result.split(',')[1];
-                const entry = {
-                    rawText: document.getElementById('text').value, // Original text without style
-                    stylePersona: document.getElementById('style-persona').value,
-                    text, // Complete text with style
-                    model: document.getElementById('model').value,
-                    voice: document.getElementById('voice').value,
-                    audioData: base64Audio, // Store audio data
-                    timestamp: new Date().toISOString()
+            try {
+                const history = JSON.parse(localStorage.getItem('tts-history') || '[]');
+                
+                // Convert audioBlob to base64
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    try {
+                        const base64Audio = reader.result.split(',')[1];
+                        
+                        // Create history entry
+                        const entry = {
+                            rawText: document.getElementById('text').value, // Original text without style
+                            stylePersona: document.getElementById('style-persona').value,
+                            text, // Complete text with style
+                            model: document.getElementById('model').value,
+                            voice: document.getElementById('voice').value,
+                            timestamp: new Date().toISOString(),
+                            audioData: base64Audio // Add audioData directly in the entry object
+                        };
+
+                        // Try to store the entry with audio
+                        try {
+                            history.unshift(entry);
+                            if (history.length > 5) history.pop(); // Reduce to last 5 entries
+                            localStorage.setItem('tts-history', JSON.stringify(history));
+                        } catch (storageError) {
+                            // If storage fails, try without audio data
+                            console.warn('Could not store audio data, saving history without audio');
+                            delete entry.audioData;
+                            history.unshift(entry);
+                            if (history.length > 5) history.pop();
+                            localStorage.setItem('tts-history', JSON.stringify(history));
+                        }
+                        
+                        displayHistory();
+                    } catch (error) {
+                        console.error('Error saving to history:', error);
+                    }
                 };
-                history.unshift(entry);
-                if (history.length > 10) history.pop(); // Keep only last 10 entries
-                localStorage.setItem('tts-history', JSON.stringify(history));
-                displayHistory();
-            };
-            reader.readAsDataURL(audioBlob);
+                reader.onerror = function() {
+                    console.error('Error reading audio blob:', reader.error);
+                };
+                reader.readAsDataURL(audioBlob);
+            } catch (error) {
+                console.error('Error initializing history:', error);
+            }
         }
 
         // Display history
@@ -424,31 +449,41 @@
 
         // Play audio from history
         function playHistoryAudio(index) {
-            const history = JSON.parse(localStorage.getItem('tts-history') || '[]');
-            const entry = history[index];
-            if (entry && entry.audioData) {
-                // Convert base64 back to blob
-                const byteCharacters = atob(entry.audioData);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
-                }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: 'audio/wav' });
-                
-                const urlObj = URL.createObjectURL(blob);
-                const audio = document.getElementById('player');
-                audio.src = urlObj;
-                audio.play().catch(() => { /* user gesture may be required */ });
+            try {
+                const history = JSON.parse(localStorage.getItem('tts-history') || '[]');
+                const entry = history[index];
+                if (entry && entry.audioData) {
+                    try {
+                        // Convert base64 back to blob
+                        const byteCharacters = atob(entry.audioData);
+                        const byteNumbers = new Array(byteCharacters.length);
+                        for (let i = 0; i < byteCharacters.length; i++) {
+                            byteNumbers[i] = byteCharacters.charCodeAt(i);
+                        }
+                        const byteArray = new Uint8Array(byteNumbers);
+                        const blob = new Blob([byteArray], { type: 'audio/wav' });
+                        
+                        const urlObj = URL.createObjectURL(blob);
+                        const audio = document.getElementById('player');
+                        audio.src = urlObj;
+                        audio.play().catch(() => { /* user gesture may be required */ });
 
-                // Update download link
-                const a = document.createElement('a');
-                a.href = urlObj;
-                a.download = 'gemini-tts.wav';
-                a.textContent = 'Tải về: gemini-tts.wav';
-                const dl = document.getElementById('download');
-                dl.innerHTML = '';
-                dl.appendChild(a);
+                        // Update download link
+                        const a = document.createElement('a');
+                        a.href = urlObj;
+                        a.download = 'gemini-tts.wav';
+                        a.textContent = 'Tải về: gemini-tts.wav';
+                        const dl = document.getElementById('download');
+                        dl.innerHTML = '';
+                        dl.appendChild(a);
+                    } catch (error) {
+                        console.error('Error playing audio from history:', error);
+                    }
+                } else {
+                    console.log('No audio data available for this history entry');
+                }
+            } catch (error) {
+                console.error('Error accessing history:', error);
             }
         }
 
