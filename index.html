@@ -75,15 +75,14 @@
 </head>
 
 <body>
-    <div class="container py-5">
+    <div class="container py-3">
         <div class="row justify-content-center">
             <div class="col-lg-8">
-                <div class="text-center mb-5">
+                <div class="text-center mb-3">
                     <i class="bi bi-soundwave header-icon mb-3"></i>
-                    <h1 class="display-5 fw-bold mb-3">Gemini Text-to-Speech</h1>
+                    <h1 class="display-5 fw-bold mb-1">Gemini Text-to-Speech</h1>
                     <p class="text-muted">Chuyển đổi văn bản thành giọng nói tự nhiên với công nghệ Gemini AI</p>
-                </div>
-
+                </div> 
                 <div class="card p-4 mb-4">
                     <div class="row">
                         <div class="col">
@@ -132,28 +131,24 @@
                                 </select>
                             </div>
                         </div>  
-                    </div>  
-
+                    </div>   
                     <div class="mb-4">
                         <label class="form-label fw-semibold">Nội dung cần đọc</label>
                         <input type="text" id="style-persona" class="form-control mb-3"
                             placeholder="Phong cách / giọng điệu (tùy chọn)"
                             value="Giọng nói tự nhiên, to rõ, hơi nhanh" />
                         <textarea id="text" class="form-control" rows="4"></textarea>
-                    </div>
-
+                    </div> 
                     <button id="go" class="btn btn-generate w-100">
                         <i class="bi bi-play-circle me-2"></i>Tạo giọng nói
                     </button>
-                </div>
-
+                </div> 
                 <div class="result-card">
                     <label class="form-label fw-semibold mb-3">Kết quả</label>
                     <audio id="player" controls class="w-100"></audio>
                     <div id="download" class="text-center"></div>
                     <pre id="log" class="mono small text-muted mt-3"></pre>
-                </div>
-
+                </div> 
                 <div class="result-card mt-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <label class="form-label fw-semibold mb-0">Lịch sử gần đây</label>
