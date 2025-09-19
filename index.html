@@ -489,12 +489,7 @@
                 if (summary) {
                     text.value = summary.trim();
                     // Save to localStorage
-                    localStorage.setItem('tts-text', text.value);
-
-                    // Extract and process keywords
-                    const keywords = await extractKeywords(summary);
-                    localStorage.setItem('tts-keywords', JSON.stringify(keywords));
-                    await updateRelatedContent(keywords);
+                    localStorage.setItem('tts-text', text.value);  
                 } else {
                     throw new Error('Không nhận được kết quả tóm tắt');
                 }
