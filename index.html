@@ -204,17 +204,181 @@
     <script>
         const endpointBase = "https://generativelanguage.googleapis.com/v1beta";
         const endpointBaseModelText = "https://generativelanguage.googleapis.com/v1/models";
-        const GOOGLE_API_KEY = "AIzaSyCMVNsdQxn-Py7ae_8GTGp6t3OXNRLSNy0";
+        
+        // Danh sách API keys
+        const API_KEYS = [
+            "AIzaSyCMVNsdQxn-Py7ae_8GTGp6t3OXNRLSNy0",
+            "AIzaSyD5RcvTe3ZImr-vxdMPhD49tWiexNXLDqc",
+            "AIzaSyAYZoPjzZGh9F0H_MheGCHZYag0-QVE_Fs",
+            // Thêm các key khác vào đây
+        ];
+
+        // Hàm để quản lý và luân chuyển API key
+        const keyManager = {
+            currentKeyIndex: 0,
+            
+            async getCurrentKey() {
+                try {
+                    // Lấy key đã lưu từ IndexedDB
+                    const savedKeyIndex = await getFromIndexedDB('settings', 'currentKeyIndex');
+                    if (savedKeyIndex !== undefined && savedKeyIndex < API_KEYS.length) {
+                        this.currentKeyIndex = savedKeyIndex;
+                    }
+                    return API_KEYS[this.currentKeyIndex];
+                } catch (error) {
+                    console.error('Error getting current key:', error);
+                    return API_KEYS[0];
+                }
+            },
+
+            async switchToNextKey() {
+                this.currentKeyIndex = (this.currentKeyIndex + 1) % API_KEYS.length;
+                try {
+                    // Lưu index key mới vào IndexedDB
+                    await saveToIndexedDB('settings', 'currentKeyIndex', this.currentKeyIndex);
+                } catch (error) {
+                    console.error('Error saving current key index:', error);
+                }
+                return API_KEYS[this.currentKeyIndex];
+            },
+
+            async handleApiError(error) {
+                if (error.message.includes('quota') || error.message.includes('exceeded') || 
+                    error.message.includes('limit') || error.message.includes('QPS')) {
+                    // Nếu là lỗi quota, chuyển sang key khác
+                    if (this.currentKeyIndex < API_KEYS.length - 1) {
+                        const newKey = await this.switchToNextKey();
+                        return { shouldRetry: true, key: newKey };
+                    } else {
+                        return { shouldRetry: false, error: 'Đã hết key khả dụng. Vui lòng thử lại sau.' };
+                    }
+                }
+                return { shouldRetry: false, error: error.message };
+            }
+        };
+
+        // IndexedDB setup
+        const dbName = 'ttsDB';
+        const dbVersion = 1;
+        let db;
+
+        // Initialize IndexedDB
+        const initDB = () => {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, dbVersion);
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    db = request.result;
+                    resolve(db);
+                };
+
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    
+                    // Create object stores if they don't exist
+                    if (!db.objectStoreNames.contains('settings')) {
+                        db.createObjectStore('settings');
+                    }
+                    if (!db.objectStoreNames.contains('history')) {
+                        const historyStore = db.createObjectStore('history', { keyPath: 'timestamp' });
+                        // Tạo index cho timestamp để sắp xếp
+                        historyStore.createIndex('timestamp', 'timestamp');
+                    }
+                };
+            });
+        };
+
+        // Save data to IndexedDB
+        const saveToIndexedDB = (storeName, key, value) => {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.put(value, key);
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        };
+
+        // Get data from IndexedDB
+        const getFromIndexedDB = (storeName, key) => {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.get(key);
+
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        };
+
+        // Get all data from store
+        const getAllFromStore = (storeName) => {
+            return new Promise((resolve, reject) => {
+                try {
+                    const transaction = db.transaction(storeName, 'readonly');
+                    const store = transaction.objectStore(storeName);
+                    const request = store.getAll();
+
+                    request.onerror = () => {
+                        console.error('Error getting all from store:', request.error);
+                        reject(request.error);
+                    };
+                    
+                    request.onsuccess = () => {
+                        // Sort entries by timestamp in descending order (newest first)
+                        const results = request.result || [];
+                        if (storeName === 'history') {
+                            results.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                        }
+                        resolve(results);
+                    };
+                    
+                    transaction.onerror = (event) => {
+                        console.error('Transaction error:', event.target.error);
+                        reject(event.target.error);
+                    };
+                } catch (error) {
+                    console.error('Error in getAllFromStore:', error);
+                    reject(error);
+                }
+            });
+        };
+
+        // Delete data from IndexedDB
+        const deleteFromIndexedDB = (storeName, key) => {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.delete(key);
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        };
+
+        // Clear entire object store
+        const clearObjectStore = (storeName) => {
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction(storeName, 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const request = store.clear();
+
+                request.onsuccess = () => resolve();
+                request.onerror = () => reject(request.error);
+            });
+        };
 
         
         // Extract keywords using Gemini
         async function extractKeywords(text) {
-            try {
+            async function attemptExtract(apiKey) {
                 const response = await fetch(`${endpointBaseModelText}/gemini-2.0-flash:generateContent`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-goog-api-key': GOOGLE_API_KEY
+                        'x-goog-api-key': apiKey
                     },
                     body: JSON.stringify({
                         contents: [{
@@ -225,12 +389,32 @@
                     })
                 });
 
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(errText);
+                }
+
                 const data = await response.json();
-                const keywords = data?.candidates?.[0]?.content?.parts?.[0]?.text
+                return data?.candidates?.[0]?.content?.parts?.[0]?.text
                     .split('\n')
                     .map(k => k.trim())
                     .filter(k => k);
-                return keywords;
+            }
+
+            try {
+                let currentKey = await keyManager.getCurrentKey();
+                while (true) {
+                    try {
+                        return await attemptExtract(currentKey);
+                    } catch (error) {
+                        const { shouldRetry, key, error: errMsg } = await keyManager.handleApiError(error);
+                        if (shouldRetry && key) {
+                            currentKey = key;
+                            continue;
+                        }
+                        throw new Error(errMsg);
+                    }
+                }
             } catch (error) {
                 console.error('Error extracting keywords:', error);
                 return [];
@@ -258,9 +442,7 @@
             const text = document.getElementById('text');
             const spinner = document.getElementById('loading-spinner');
             const processButton = document.getElementById('process-url');
-            const url = urlInput.value.trim();
-
-            
+            const url = urlInput.value.trim(); 
 
             if (!url) {
                 alert('Vui lòng nhập link cần tóm tắt');
@@ -271,22 +453,13 @@
             spinner.classList.remove('d-none');
             processButton.disabled = true;
 
-            try {
-                // Fetch content from URL
-                const response = await fetch(url);
-                if (!response.ok) throw new Error('Không thể tải nội dung từ URL');
-                const content = await response.text();
-
-                // Extract main content (simple approach - you might want to use a proper parser)
-                const doc = new DOMParser().parseFromString(content, 'text/html');
-                const mainContent = doc.body.textContent || '';
-                
+            try { 
                 // Call Gemini API for summarization
                 const geminiUrl = `${endpointBaseModelText}/gemini-2.0-flash:generateContent`;
                 const payload = {
                     contents: [{
                         parts: [{
-                            text: `Viết lại nội dung của bài viết trong link sau, gom lại thành 1 đoạn để tôi copy vào công cụ text to speech để làm video:\n\n${mainContent}`
+                            text: `Viết lại nội dung của bài viết trong link sau, gom lại thành 1 đoạn để tôi copy vào công cụ text to speech để làm video:\n\n${url}`
                         }]
                     }],
                     generationConfig: {
@@ -340,91 +513,107 @@
             }
         }
         
-        // Load saved form values from localStorage
-        function loadSavedValues() {
-            const model = localStorage.getItem('tts-model');
-            const voice = localStorage.getItem('tts-voice');
-            const stylePersona = localStorage.getItem('tts-style-persona');
-            const text = localStorage.getItem('tts-text');
-            const url = localStorage.getItem('tts-url');
+        // Load saved form values from IndexedDB
+        async function loadSavedValues() {
+            try {
+                const model = await getFromIndexedDB('settings', 'model');
+                const voice = await getFromIndexedDB('settings', 'voice');
+                const stylePersona = await getFromIndexedDB('settings', 'stylePersona');
+                const text = await getFromIndexedDB('settings', 'text');
+                const url = await getFromIndexedDB('settings', 'url');
 
-            if (model) document.getElementById('model').value = model;
-            if (voice) document.getElementById('voice').value = voice;
-            if (stylePersona) document.getElementById('style-persona').value = stylePersona;
-            if (text) document.getElementById('text').value = text;
-            if (url) document.getElementById('url-input').value = url;
+                if (model) document.getElementById('model').value = model;
+                if (voice) document.getElementById('voice').value = voice;
+                if (stylePersona) document.getElementById('style-persona').value = stylePersona;
+                if (text) document.getElementById('text').value = text;
+                if (url) document.getElementById('url-input').value = url;
 
-            // Load and display history
-            displayHistory();
+                // Load and display history
+                await displayHistory();
+            } catch (error) {
+                console.error('Error loading saved values:', error);
+            }
         }
 
-        // Save form values to localStorage
-        function saveFormValues() {
-            const model = document.getElementById('model').value;
-            const voice = document.getElementById('voice').value;
-            const stylePersona = document.getElementById('style-persona').value;
-            const text = document.getElementById('text').value;
+        // Save form values to IndexedDB
+        async function saveFormValues() {
+            try {
+                const model = document.getElementById('model').value;
+                const voice = document.getElementById('voice').value;
+                const stylePersona = document.getElementById('style-persona').value;
+                const text = document.getElementById('text').value;
 
-            localStorage.setItem('tts-model', model);
-            localStorage.setItem('tts-voice', voice);
-            localStorage.setItem('tts-style-persona', stylePersona);
-            localStorage.setItem('tts-text', text);
+                await saveToIndexedDB('settings', 'model', model);
+                await saveToIndexedDB('settings', 'voice', voice);
+                await saveToIndexedDB('settings', 'stylePersona', stylePersona);
+                await saveToIndexedDB('settings', 'text', text);
+            } catch (error) {
+                console.error('Error saving form values:', error);
+            }
         }
 
         // Save to history
-        function saveToHistory(text, audioBlob) {
+        async function saveToHistory(text, audioBlob) {
             try {
-                const history = JSON.parse(localStorage.getItem('tts-history') || '[]');
-                
                 // Convert audioBlob to base64
-                const reader = new FileReader();
-                reader.onloadend = function() {
-                    try {
-                        const base64Audio = reader.result.split(',')[1];
-                        
-                        // Create history entry
-                        const entry = {
-                            rawText: document.getElementById('text').value, // Original text without style
-                            stylePersona: document.getElementById('style-persona').value,
-                            text, // Complete text with style
-                            model: document.getElementById('model').value,
-                            voice: document.getElementById('voice').value,
-                            timestamp: new Date().toISOString(),
-                            audioData: base64Audio // Add audioData directly in the entry object
-                        };
+                const base64Audio = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = () => reject(reader.error);
+                    reader.readAsDataURL(audioBlob);
+                });
 
-                        // Try to store the entry with audio
-                        try {
-                            history.unshift(entry);
-                            if (history.length > 5) history.pop(); // Reduce to last 5 entries
-                            localStorage.setItem('tts-history', JSON.stringify(history));
-                        } catch (storageError) {
-                            // If storage fails, try without audio data
-                            console.warn('Could not store audio data, saving history without audio');
-                            delete entry.audioData;
-                            history.unshift(entry);
-                            if (history.length > 5) history.pop();
-                            localStorage.setItem('tts-history', JSON.stringify(history));
-                        }
-                        
-                        displayHistory();
-                    } catch (error) {
-                        console.error('Error saving to history:', error);
+                // Create history entry
+                const entry = {
+                    rawText: document.getElementById('text').value,
+                    stylePersona: document.getElementById('style-persona').value,
+                    text,
+                    model: document.getElementById('model').value,
+                    voice: document.getElementById('voice').value,
+                    timestamp: new Date().toISOString(),
+                    audioData: base64Audio
+                };
+
+                // Get existing history
+                const history = await getAllFromStore('history') || [];
+                
+                // Add new entry and limit to 5 items
+                history.unshift(entry);
+                if (history.length > 5) {
+                    // Remove old entries
+                    const itemsToRemove = history.slice(5);
+                    for (const oldEntry of itemsToRemove) {
+                        await deleteFromIndexedDB('history', oldEntry.timestamp);
                     }
-                };
-                reader.onerror = function() {
-                    console.error('Error reading audio blob:', reader.error);
-                };
-                reader.readAsDataURL(audioBlob);
+                    history.length = 5;
+                }
+
+                // Save new entry
+                const transaction = db.transaction('history', 'readwrite');
+                const store = transaction.objectStore('history');
+                
+                try {
+                    await new Promise((resolve, reject) => {
+                        const request = store.add(entry);
+                        request.onsuccess = () => resolve();
+                        request.onerror = () => reject(request.error);
+                    });
+                } catch (storageError) {
+                    console.warn('Error saving with audio, trying without:', storageError);
+                    delete entry.audioData;
+                    await saveToIndexedDB('history', entry.timestamp, entry);
+                }
+
+                await displayHistory();
             } catch (error) {
-                console.error('Error initializing history:', error);
+                console.error('Error in saveToHistory:', error);
             }
         }
 
         // Display history
-        function displayHistory() {
+        async function displayHistory() {
             const historyContainer = document.getElementById('history-list');
-            const history = JSON.parse(localStorage.getItem('tts-history') || '[]');
+            const history = await getAllFromStore('history') || [];
             
             historyContainer.innerHTML = history.map((entry, index) => {
                 // Đảm bảo có rawText, nếu không thì dùng text
@@ -452,9 +641,9 @@
         }
 
         // Play audio from history
-        function playHistoryAudio(index) {
+        async function playHistoryAudio(index) {
             try {
-                const history = JSON.parse(localStorage.getItem('tts-history') || '[]');
+                const history = await getAllFromStore('history') || [];
                 const entry = history[index];
                 if (entry && entry.audioData) {
                     try {
@@ -492,24 +681,32 @@
         }
 
         // Load history entry
-        function loadHistoryEntry(index) {
-            const history = JSON.parse(localStorage.getItem('tts-history') || '[]');
-            const entry = history[index];
-            if (entry) {
-                document.getElementById('model').value = entry.model;
-                document.getElementById('voice').value = entry.voice;
-                document.getElementById('style-persona').value = entry.stylePersona || '';
-                document.getElementById('text').value = entry.rawText; // Load original text without style
-                // Also play the saved audio
-                playHistoryAudio(index);
+        async function loadHistoryEntry(index) {
+            try {
+                const history = await getAllFromStore('history') || [];
+                const entry = history[index];
+                if (entry) {
+                    document.getElementById('model').value = entry.model;
+                    document.getElementById('voice').value = entry.voice;
+                    document.getElementById('style-persona').value = entry.stylePersona || '';
+                    document.getElementById('text').value = entry.rawText; // Load original text without style
+                    // Also play the saved audio
+                    await playHistoryAudio(index);
+                }
+            } catch (error) {
+                console.error('Error loading history entry:', error);
             }
         }
 
         // Clear history
-        function clearHistory() {
+        async function clearHistory() {
             if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử?')) {
-                localStorage.removeItem('tts-history');
-                displayHistory();
+                try {
+                    await clearObjectStore('history');
+                    await displayHistory();
+                } catch (error) {
+                    console.error('Error clearing history:', error);
+                }
             }
         }
 
@@ -556,7 +753,6 @@
         }
 
         async function generateTTS() {
-            const key = "AIzaSyCMVNsdQxn-Py7ae_8GTGp6t3OXNRLSNy0";
             var text = document.getElementById('text').value;
             const voice = document.getElementById('voice').value;
             const model = document.getElementById('model').value;
@@ -564,13 +760,42 @@
             const generateBtn = document.getElementById('go');
             const generateBtnText = document.getElementById('generate-btn-text');
             const generateSpinner = document.getElementById('generate-spinner');
+
+            // Hàm thực hiện gọi API TTS
+            async function attemptTTS(apiKey) {
+                const res = await fetch(`${endpointBase}/models/${encodeURIComponent(model)}:generateContent`, {
+                    method: "POST",
+                    headers: {
+                        "x-goog-api-key": apiKey,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text }] }],
+                        generationConfig: {
+                            responseModalities: ["AUDIO"],
+                            speechConfig: {
+                                voiceConfig: {
+                                    prebuiltVoiceConfig: { voiceName: voice }
+                                }
+                            }
+                        },
+                        model
+                    })
+                });
+
+                if (!res.ok) {
+                    const errText = await res.text();
+                    throw new Error(errText);
+                }
+
+                return await res.json();
+            }
             
             // Save form values
             saveFormValues();
 
             const log = (msg) => document.getElementById('log').textContent = String(msg ?? '');
 
-            if (!key) { alert("Nhập API key trước đã."); return; }
             if (!text) { alert("Nhập nội dung cần đọc."); return; }
             
             // Show loading state
@@ -583,42 +808,32 @@
                 text = `Đọc với phong cách / ${stylePersona}:\n\n${text}`;
             }
             console.log(text);
-            log("Đang gọi Gemini TTS...");
-
-            const url = `${endpointBase}/models/${encodeURIComponent(model)}:generateContent`;
-            const payload = {
-                contents: [{ parts: [{ text }] }],
-                generationConfig: {
-                    responseModalities: ["AUDIO"],
-                    speechConfig: {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: { voiceName: voice }
-                        }
-                    }
-                },
-                model
-            };
 
             try {
-                const res = await fetch(url, {
-                    method: "POST",
-                    headers: {
-                        "x-goog-api-key": key,
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(payload)
-                });
+                let currentKey = await keyManager.getCurrentKey();
+                let data;
 
-                if (!res.ok) {
-                    const errText = await res.text();
-                    throw new Error(`HTTP ${res.status} — ${errText}`);
+                while (true) {
+                    try {
+                        log(`Đang gọi Gemini TTS với key ${currentKey.substring(0, 10)}...`);
+                        data = await attemptTTS(currentKey);
+                        break;
+                    } catch (error) {
+                        const { shouldRetry, key, error: errMsg } = await keyManager.handleApiError(error);
+                        if (shouldRetry && key) {
+                            currentKey = key;
+                            log(`Thử lại với key mới ${key.substring(0, 10)}...`);
+                            continue;
+                        }
+                        throw new Error(errMsg);
+                    }
                 }
 
-                const data = await res.json();
                 // Lấy Base64 PCM từ inlineData
                 const b64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
                 if (!b64) throw new Error("Không tìm thấy audio trong phản hồi API.");
-
+                
+              
                 // Đổi sang WAV rồi phát
                 const wavBlob = pcmBase64ToWavBlob(b64, 24000, 1, 2);
                 const urlObj = URL.createObjectURL(wavBlob);
@@ -652,8 +867,8 @@
         }
 
         // Save text content whenever it changes
-        document.getElementById('text').addEventListener('input', function() {
-            localStorage.setItem('tts-text', this.value);
+        document.getElementById('text').addEventListener('input', async function() {
+            await saveToIndexedDB('settings', 'text', this.value);
         });
 
         // Add event listeners
@@ -667,12 +882,19 @@
 
 
         // Save URL input whenever it changes
-        document.getElementById('url-input').addEventListener('input', function() {
-            localStorage.setItem('tts-url', this.value);
+        document.getElementById('url-input').addEventListener('input', async function() {
+            await saveToIndexedDB('settings', 'url', this.value);
         });
         
-        // Load saved values when page loads
-        document.addEventListener('DOMContentLoaded', loadSavedValues);
+        // Initialize DB and load saved values when page loads
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await initDB();
+                await loadSavedValues();
+            } catch (error) {
+                console.error('Error initializing app:', error);
+            }
+        });
     </script>
 </body>
 
