@@ -62,7 +62,7 @@
 
         #download a {
             text-decoration: none;
-            color: #6366f1;
+            color: #fff;
         }
 
         .result-card {
@@ -659,6 +659,7 @@
                         // Update download link
                         const a = document.createElement('a');
                         a.href = urlObj;
+                        a.className = 'd-block mt-2 btn btn-secondary';
                         a.download = 'gemini-tts.wav';
                         a.textContent = 'Tải về: gemini-tts.wav';
                         const dl = document.getElementById('download');
@@ -841,6 +842,7 @@
                 const a = document.createElement('a');
                 a.href = urlObj;
                 a.download = 'gemini-tts.wav';
+                a.className = 'd-block mt-2 btn btn-secondary';
                 a.textContent = 'Tải về: gemini-tts.wav';
                 const dl = document.getElementById('download');
                 dl.innerHTML = '';
