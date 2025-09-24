@@ -410,22 +410,16 @@
                 const payload = {
                     contents: [{
                         parts: [{
-                            text: `Viết lại nội dung của bài viết trong link sau, gom lại thành 1 đoạn để tôi copy vào công cụ text to speech để làm video:\n\n${url}`
+                            text: `Viết lại nội dung của bài viết trong link sau, gom lại thành 1 đoạn để tôi copy vào công cụ text to speech để làm video, không giải thích gì thêm:\n\n${url}`
                         }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        topK: 32,
-                        topP: 1,
-                        maxOutputTokens: 1024,
-                    }
+                    }], 
                 };
-
+                let currentKey = await keyManager.getCurrentKey();
                 const geminiResponse = await fetch(geminiUrl, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'x-goog-api-key': "AIzaSyCMVNsdQxn-Py7ae_8GTGp6t3OXNRLSNy0"
+                        'x-goog-api-key': currentKey
                     },
                     body: JSON.stringify(payload)
                 });
