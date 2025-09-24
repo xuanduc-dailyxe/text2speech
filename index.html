@@ -79,8 +79,6 @@
             border-radius: 12px;
             font-size: 0.875rem;
         }
-
-
     </style>
 </head>
 
@@ -92,7 +90,7 @@
                     <i class="bi bi-soundwave header-icon mb-3"></i>
                     <h1 class="display-5 fw-bold mb-1">Gemini Text-to-Speech</h1>
                     <p class="text-muted">Chuyển đổi văn bản thành giọng nói tự nhiên với công nghệ Gemini AI</p>
-                </div> 
+                </div>
                 <div class="card p-4 mb-4">
                     <div class="row">
                         <div class="col">
@@ -140,12 +138,15 @@
                                     <option value="Sulafat">Sulafat</option>
                                 </select>
                             </div>
-                        </div>  
-                    </div>   
+                        </div>
+                    </div>
                     <div class="mb-4">
                         <label class="form-label fw-semibold">Nội dung cần đọc</label>
                         <div class="mb-3">
                             <div class="input-group">
+                                <button id="input-content-btn" class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#contentModal">
+                                    <i class="bi bi-file-earmark-text me-1"></i>Nhập nội dung
+                                </button>
                                 <input type="text" id="url-input" class="form-control" placeholder="Nhập link tóm tắt...">
                                 <button id="process-url" class="btn btn-outline-primary" type="button">
                                     <i class="bi bi-magic me-1"></i>Tóm tắt AI
@@ -160,15 +161,16 @@
                                     <div id="keywords" class="d-flex gap-1 flex-wrap"></div>
                                 </div>
                                 <div class="row g-2">
-            
+
                                 </div>
                             </div>
                         </div>
-                        <input type="text" id="style-persona" class="form-control mb-3"
+                        <input type="text" id="style-persona" class="form-control mb-1"
                             placeholder="Phong cách / giọng điệu (tùy chọn)"
                             value="Giọng nói tự nhiên, hơi nhanh, rõ ràng, mạch lạc, đôi khi có nhịp điệu chậm vừa để người xem kịp theo dõi tin tức, Ngữ điệu lên xuống tự nhiên, không đều đều như máy. Khi nêu con số, sự kiện thì nhấn nhẹ để tăng độ tin cậy" />
+                        <small class="d-inline-block text-secondary mb-3">Ví dụ: Giọng nói tự nhiên, hơi nhanh, rõ ràng, mạch lạc, đôi khi có nhịp điệu chậm vừa để người xem kịp theo dõi tin tức, Ngữ điệu lên xuống tự nhiên, không đều đều như máy. Khi nêu con số, sự kiện thì nhấn nhẹ để tăng độ tin cậy</small>
                         <textarea id="text" class="form-control" rows="14"></textarea>
-                    </div> 
+                    </div>
                     <button id="go" class="btn btn-generate w-100">
                         <i class="bi bi-play-circle me-2"></i>
                         <span id="generate-btn-text">Tạo giọng nói</span>
@@ -176,13 +178,13 @@
                             <span class="visually-hidden">Đang tạo...</span>
                         </span>
                     </button>
-                </div> 
+                </div>
                 <div class="result-card">
                     <label class="form-label fw-semibold mb-3">Kết quả</label>
                     <audio id="player" controls class="w-100"></audio>
                     <div id="download" class="text-center"></div>
                     <pre id="log" class="mono small text-muted mt-3"></pre>
-                </div> 
+                </div>
                 <div class="result-card mt-4">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <label class="form-label fw-semibold mb-0">Lịch sử gần đây</label>
@@ -207,7 +209,7 @@
     <script>
         const endpointBase = "https://generativelanguage.googleapis.com/v1beta";
         const endpointBaseModelText = "https://generativelanguage.googleapis.com/v1beta";
-        
+
         // Danh sách API keys
         const API_KEYS = [
             "AIzaSyCMVNsdQxn-Py7ae_8GTGp6t3OXNRLSNy0",
@@ -219,7 +221,7 @@
         // Hàm để quản lý và luân chuyển API key
         const keyManager = {
             currentKeyIndex: 0,
-            
+
             async getCurrentKey() {
                 try {
                     // Lấy key đã lưu từ IndexedDB
@@ -246,7 +248,7 @@
             },
 
             async handleApiError(error) {
-                if (error.message.includes('quota') || error.message.includes('exceeded') || 
+                if (error.message.includes('quota') || error.message.includes('exceeded') ||
                     error.message.includes('limit') || error.message.includes('QPS')) {
                     // Nếu là lỗi quota, chuyển sang key khác
                     if (this.currentKeyIndex < API_KEYS.length - 1) {
@@ -278,7 +280,7 @@
 
                 request.onupgradeneeded = (event) => {
                     const db = event.target.result;
-                    
+
                     // Create object stores if they don't exist
                     if (!db.objectStoreNames.contains('settings')) {
                         db.createObjectStore('settings');
@@ -328,7 +330,7 @@
                         console.error('Error getting all from store:', request.error);
                         reject(request.error);
                     };
-                    
+
                     request.onsuccess = () => {
                         // Sort entries by timestamp in descending order (newest first)
                         const results = request.result || [];
@@ -337,7 +339,7 @@
                         }
                         resolve(results);
                     };
-                    
+
                     transaction.onerror = (event) => {
                         console.error('Transaction error:', event.target.error);
                         reject(event.target.error);
@@ -372,7 +374,7 @@
                 request.onerror = () => reject(request.error);
             });
         };
- 
+
 
         // Update related content UI
         async function updateRelatedContent(keywords) {
@@ -386,17 +388,33 @@
             // Show the related content section
             document.getElementById('related-content').style.display = 'block';
         }
-        
+
         // Process URL and generate summary
+        // Hàm lưu nội dung từ modal
+        function saveContent() {
+            const content = document.getElementById('content-to-summarize').value;
+            if (content) {
+                // Đóng modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('contentModal'));
+                modal.hide();
+                // Xóa URL nếu có
+                document.getElementById('url-input').value = '';
+                // Gọi hàm processUrl để xử lý
+                processUrl();
+            }
+        }
+
         async function processUrl() {
             const urlInput = document.getElementById('url-input');
+            const contentInput = document.getElementById('content-to-summarize');
             const text = document.getElementById('text');
             const spinner = document.getElementById('loading-spinner');
             const processButton = document.getElementById('process-url');
-            const url = urlInput.value.trim(); 
+            const url = urlInput.value.trim();
+            const content = contentInput.value.trim();
 
-            if (!url) {
-                alert('Vui lòng nhập link cần tóm tắt');
+            if (!url && !content) {
+                alert('Vui lòng nhập link hoặc nội dung cần tóm tắt');
                 return;
             }
             text.value = ''; // Clear previous text
@@ -404,15 +422,19 @@
             spinner.classList.remove('d-none');
             processButton.disabled = true;
 
-            try { 
+            try {
                 // Call Gemini API for summarization
                 const geminiUrl = `${endpointBaseModelText}/models/gemini-2.5-flash:generateContent`;
+                const prompt = url
+                    ? `Đọc nội dung của bài viết từ link sau (dịch sang tiếng Việt Nam nếu là ngôn ngữ khác), sau đó gom lại thành 1 đoạn để tôi copy vào công cụ text to speech để làm video, không giải thích gì thêm:\n\n${url}`
+                    : `Tóm tắt nội dung sau thành 1 đoạn để tôi copy vào công cụ text to speech để làm video (dịch sang tiếng Việt Nam nếu là ngôn ngữ khác), không giải thích gì thêm:\n\n${content}`;
+
                 const payload = {
                     contents: [{
                         parts: [{
-                            text: `Đọc nội dung của bài viết từ link sau (dịch sang tiếng Việt Nam nếu là ngôn ngữ khác), sau đó gom lại thành 1 đoạn để tôi copy vào công cụ text to speech để làm video, không giải thích gì thêm:\n\n${url}`
+                            text: prompt
                         }]
-                    }], 
+                    }],
                 };
                 let currentKey = await keyManager.getCurrentKey();
                 const geminiResponse = await fetch(geminiUrl, {
@@ -430,11 +452,11 @@
 
                 const result = await geminiResponse.json();
                 const summary = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-                
+
                 if (summary) {
                     text.value = summary.trim();
                     // Save to localStorage
-                    localStorage.setItem('tts-text', text.value);  
+                    localStorage.setItem('tts-text', text.value);
                 } else {
                     throw new Error('Không nhận được kết quả tóm tắt');
                 }
@@ -452,7 +474,7 @@
                 processButton.disabled = false;
             }
         }
-        
+
         // Load saved form values from IndexedDB
         async function loadSavedValues() {
             try {
@@ -516,7 +538,7 @@
 
                 // Get existing history
                 const history = await getAllFromStore('history') || [];
-                
+
                 // Add new entry and limit to 5 items
                 history.unshift(entry);
                 if (history.length > 5) {
@@ -531,7 +553,7 @@
                 // Save new entry
                 const transaction = db.transaction('history', 'readwrite');
                 const store = transaction.objectStore('history');
-                
+
                 try {
                     await new Promise((resolve, reject) => {
                         const request = store.add(entry);
@@ -554,12 +576,12 @@
         async function displayHistory() {
             const historyContainer = document.getElementById('history-list');
             const history = await getAllFromStore('history') || [];
-            
+
             historyContainer.innerHTML = history.map((entry, index) => {
                 // Đảm bảo có rawText, nếu không thì dùng text
                 const displayText = entry.rawText || entry.text || '';
                 const stylePersona = entry.stylePersona || '';
-                
+
                 return `
                 <div class="history-item p-3 border-bottom">
                     <div class="d-flex justify-content-between align-items-start mb-2">
@@ -595,7 +617,7 @@
                         }
                         const byteArray = new Uint8Array(byteNumbers);
                         const blob = new Blob([byteArray], { type: 'audio/wav' });
-                        
+
                         const urlObj = URL.createObjectURL(blob);
                         const audio = document.getElementById('player');
                         audio.src = urlObj;
@@ -731,19 +753,19 @@
 
                 return await res.json();
             }
-            
+
             // Save form values
             saveFormValues();
 
             const log = (msg) => document.getElementById('log').textContent = String(msg ?? '');
 
             if (!text) { alert("Nhập nội dung cần đọc."); return; }
-            
+
             // Show loading state
             generateBtn.disabled = true;
             generateBtnText.textContent = 'Đang tạo...';
             generateSpinner.classList.remove('d-none');
-            
+
             if (stylePersona) {
                 // Thêm style/persona vào đầu đoạn text, nếu có
                 text = `Đọc với phong cách / ${stylePersona}:\n\n${text}`;
@@ -755,7 +777,7 @@
                 let data;
 
                 while (true) {
-                    try { 
+                    try {
                         data = await attemptTTS(currentKey);
                         break;
                     } catch (error) {
@@ -772,8 +794,8 @@
                 // Lấy Base64 PCM từ inlineData
                 const b64 = data?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
                 if (!b64) throw new Error("Không tìm thấy audio trong phản hồi API.");
-                
-              
+
+
                 // Đổi sang WAV rồi phát
                 const wavBlob = pcmBase64ToWavBlob(b64, 24000, 1, 2);
                 const urlObj = URL.createObjectURL(wavBlob);
@@ -793,7 +815,7 @@
                 dl.appendChild(a);
 
                 log("Xong. Nếu không nghe được, thử bấm Play thủ công hoặc tải file về.");
-                
+
                 // Save to history after successful generation
                 saveToHistory(text, wavBlob);
             } catch (e) {
@@ -808,14 +830,14 @@
         }
 
         // Save text content whenever it changes
-        document.getElementById('text').addEventListener('input', async function() {
+        document.getElementById('text').addEventListener('input', async function () {
             await saveToIndexedDB('settings', 'text', this.value);
         });
 
         // Add event listeners
         document.getElementById('go').addEventListener('click', generateTTS);
         document.getElementById('process-url').addEventListener('click', processUrl);
-        document.getElementById('url-input').addEventListener('keypress', function(e) {
+        document.getElementById('url-input').addEventListener('keypress', function (e) {
             if (e.key === 'Enter') {
                 processUrl();
             }
@@ -823,10 +845,10 @@
 
 
         // Save URL input whenever it changes
-        document.getElementById('url-input').addEventListener('input', async function() {
+        document.getElementById('url-input').addEventListener('input', async function () {
             await saveToIndexedDB('settings', 'url', this.value);
         });
-        
+
         // Initialize DB and load saved values when page loads
         document.addEventListener('DOMContentLoaded', async () => {
             try {
@@ -837,6 +859,25 @@
             }
         });
     </script>
+
+    <!-- Modal nhập nội dung -->
+    <div class="modal fade" id="contentModal" tabindex="-1" aria-labelledby="contentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="contentModalLabel">Nhập nội dung cần tóm tắt</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <textarea id="content-to-summarize" class="form-control" rows="10" placeholder="Dán nội dung cần tóm tắt vào đây..."></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                    <button type="button" class="btn btn-primary" onclick="saveContent()">Lưu nội dung</button>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 
 </html>
