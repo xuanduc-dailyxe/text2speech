@@ -206,7 +206,7 @@
 
     <script>
         const endpointBase = "https://generativelanguage.googleapis.com/v1beta";
-        const endpointBaseModelText = "https://generativelanguage.googleapis.com/v1/models";
+        const endpointBaseModelText = "https://generativelanguage.googleapis.com/v1beta";
         
         // Danh sách API keys
         const API_KEYS = [
@@ -372,59 +372,7 @@
                 request.onerror = () => reject(request.error);
             });
         };
-
-        
-        // Extract keywords using Gemini
-        async function extractKeywords(text) {
-            async function attemptExtract(apiKey) {
-                const response = await fetch(`${endpointBaseModelText}/gemini-2.0-flash:generateContent`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'x-goog-api-key': apiKey
-                    },
-                    body: JSON.stringify({
-                        contents: [{
-                            parts: [{
-                                text: `Trích xuất 3-5 từ khóa chính từ đoạn văn sau (trả về dưới dạng danh sách các từ khóa, mỗi từ khóa một dòng):\n\n${text}`
-                            }]
-                        }]
-                    })
-                });
-
-                if (!response.ok) {
-                    const errText = await response.text();
-                    throw new Error(errText);
-                }
-
-                const data = await response.json();
-                return data?.candidates?.[0]?.content?.parts?.[0]?.text
-                    .split('\n')
-                    .map(k => k.trim())
-                    .filter(k => k);
-            }
-
-            try {
-                let currentKey = await keyManager.getCurrentKey();
-                while (true) {
-                    try {
-                        return await attemptExtract(currentKey);
-                    } catch (error) {
-                        const { shouldRetry, key, error: errMsg } = await keyManager.handleApiError(error);
-                        if (shouldRetry && key) {
-                            currentKey = key;
-                            continue;
-                        }
-                        throw new Error(errMsg);
-                    }
-                }
-            } catch (error) {
-                console.error('Error extracting keywords:', error);
-                return [];
-            }
-        }
-
-
+ 
 
         // Update related content UI
         async function updateRelatedContent(keywords) {
@@ -458,7 +406,7 @@
 
             try { 
                 // Call Gemini API for summarization
-                const geminiUrl = `${endpointBaseModelText}/gemini-2.5-flash:generateContent`;
+                const geminiUrl = `${endpointBaseModelText}/models/gemini-2.5-flash:generateContent`;
                 const payload = {
                     contents: [{
                         parts: [{
