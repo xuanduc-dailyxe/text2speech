@@ -633,7 +633,7 @@
                         const a = document.createElement('a');
                         a.href = urlObj;
                         a.className = 'd-block mt-2 btn btn-secondary';
-                        a.download = entry.text.substring(0, 20).replace(/\s+/g, '_') + '_tts.wav';
+                        a.download = entry.rawText.substring(0, 20).replace(/\s+/g, '_') + '_tts.wav';
                         a.textContent = 'Tải xuống Audio';
                         const dl = document.getElementById('download');
                         dl.innerHTML = '';
