@@ -633,8 +633,8 @@
                         const a = document.createElement('a');
                         a.href = urlObj;
                         a.className = 'd-block mt-2 btn btn-secondary';
-                        a.download = 'gemini-tts.wav';
-                        a.textContent = 'Tải về: gemini-tts.wav';
+                        a.download = entry.text.substring(0, 20).replace(/\s+/g, '_') + '_tts.wav';
+                        a.textContent = 'Tải xuống Audio';
                         const dl = document.getElementById('download');
                         dl.innerHTML = '';
                         dl.appendChild(a);
@@ -822,9 +822,9 @@
                 // Link tải
                 const a = document.createElement('a');
                 a.href = urlObj;
-                a.download = 'gemini-tts.wav';
+                a.download = text.substring(0, 20).replace(/\s+/g, '_') + '_tts.wav';
                 a.className = 'd-block mt-2 btn btn-secondary';
-                a.textContent = 'Tải về: gemini-tts.wav';
+                a.textContent = 'Tải xuống Audio';
                 const dl = document.getElementById('download');
                 dl.innerHTML = '';
                 dl.appendChild(a);
